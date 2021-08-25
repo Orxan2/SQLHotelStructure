@@ -52,6 +52,7 @@ Id int primary key identity,
 [CreatedDate] datetime DEFAULT DATEADD(HOUR,4,GETUTCDATE()),
 [HowLong] datetime,
 [IsForeign] bit DEFAULT('False'),
+VisaTypeId int FOREIGN KEY REFERENCES VisaTypes(Id)
 )
 
 CREATE TABLE WaitingCustomers
@@ -64,7 +65,7 @@ Id int primary key identity,
 [CreatedDate] datetime DEFAULT DATEADD(HOUR,4,GETUTCDATE()),
 [WaitingTo] datetime,
 [IsForeign] bit DEFAULT('False'),
-VisaTypeId int FOREIGN KEY REFERENCES VisaTypes(Id),
+VisaTypeId int FOREIGN KEY REFERENCES VisaTypes(Id)
 )
 CREATE TABLE Reservations
 (
@@ -90,19 +91,19 @@ VALUES(1),(2),(2)
 INSERT INTO VisaTypes
 VALUES('Tourism'),('Sport'),('Personal'),('Education'),('Work')
 
-INSERT INTO Customers(Name,Surname,Age,Job,HowLong)
-VALUES('Orxan',N'İbrahimli',22,'Magistr',DATEADD(DAY,7,GETUTCDATE()))
+INSERT INTO Customers(Name,Surname,Age,Job,HowLong,IsForeign)
+VALUES('Orxan',N'İbrahimli',22,'Magistr',DATEADD(DAY,7,GETUTCDATE()),'False')
 
-INSERT INTO Customers(Name,Surname,Age,Job,HowLong)
-VALUES('Clint','Edwards',36,'Polis',DATEADD(DAY,4,GETUTCDATE()))
+INSERT INTO Customers(Name,Surname,Age,Job,HowLong,IsForeign,VisaTypeId)
+VALUES('Clint','Edwards',36,'Polis',DATEADD(DAY,4,GETUTCDATE()),'True',5)
 
 INSERT INTO Customers(Name,Surname,Age,Job,HowLong)
 VALUES('Elxan',N'Kərimli',56,N'Həkim',DATEADD(WEEK,3,GETUTCDATE())),
 (N'Tərlan','Abbasov',25,N'Müəllim',DATEADD(WEEK,3,GETUTCDATE()))
 
-INSERT INTO Customers(Name,Surname,Age,Job,HowLong)
-VALUES('John','Baker',23,'İdmançı',DATEADD(DAY,5,GETUTCDATE())),
-('Selena','Fierce',19,'Model',DATEADD(WEEK,2,GETUTCDATE()))
+INSERT INTO Customers(Name,Surname,Age,Job,HowLong,IsForeign,VisaTypeId)
+VALUES('John','Baker',23,'İdmançı',DATEADD(DAY,5,GETUTCDATE()),'True',2),
+('Selena','Fierce',19,'Model',DATEADD(WEEK,2,GETUTCDATE()),'True',2)
 
 INSERT INTO WaitingCustomers(Name,Surname,Age,Job,WaitingTo)
 VALUES(N'Aytən',N'Alıyeva',26,N'Həkim',DATEADD(WEEK,2,GETUTCDATE())),
@@ -229,26 +230,51 @@ SELECT dbo.FIndCustomerJob('John','Baker') [Job]
 
 SELECT dbo.FIndCustomerJob('Orxan',N'İbrahimli') [Job]
 
---CREATE FUNCTION FindCustomerPays(@isForeign bit)
---RETURNS decimal
---AS
---BEGIN
---DECLARE @money decimal
---Select @money = SUM(s.TotalPrice) FROM Reservations re
---JOIN Rooms rm
---ON rm.Id = re.RoomId
---JOIN RoomTypes rt
---ON rm.RoomTypeId = rt.Id
---JOIN Payments p
---ON re.PaymentId = p.Id
---JOIN PaymentTypes pt
---ON p.PaymentTypeId = pt.Id
---JOIN Spendings s
---ON re.SpendingId = s.Id
---JOIN Customers c
---ON re.CustomerId = c.Id
---WHERE c.IsForeign = @isForeign
---RETURN @money 
---END
+CREATE FUNCTION FindCustomerPaysForJob(@job nvarchar(50))
+RETURNS decimal
+AS
+BEGIN
+DECLARE @money decimal
+SELECT @money = SUM(s.TotalPrice+rm.RentPrice) FROM Reservations re
+JOIN Rooms rm
+ON rm.Id = re.RoomId
+JOIN RoomTypes rt
+ON rm.RoomTypeId = rt.Id
+JOIN Payments p
+ON re.PaymentId = p.Id
+JOIN PaymentTypes pt
+ON p.PaymentTypeId = pt.Id
+JOIN Spendings s
+ON re.SpendingId = s.Id
+JOIN Customers c
+ON re.CustomerId = c.Id
+WHERE c.Job = @job
+RETURN @money 
+END
 
---SELECT dbo.FindCustomerPays('false') [Total Price]
+SELECT dbo.FindCustomerPaysForJob('Magistr') [Total Price]
+
+CREATE FUNCTION GetCustomerCountsForDateInterval(@date1 date,@date2 date)
+RETURNS int
+AS
+BEGIN
+DECLARE @count int
+SELECT @count = COUNT(c.Id) FROM Reservations re
+JOIN Rooms rm
+ON rm.Id = re.RoomId
+JOIN RoomTypes rt
+ON rm.RoomTypeId = rt.Id
+JOIN Payments p
+ON re.PaymentId = p.Id
+JOIN PaymentTypes pt
+ON p.PaymentTypeId = pt.Id
+JOIN Spendings s
+ON re.SpendingId = s.Id
+JOIN Customers c
+ON re.CustomerId = c.Id
+WHERE c.CreatedDate > @date1 AND c.CreatedDate < @date2
+RETURN @count 
+END
+
+SELECT dbo.GetCustomerCountsForDateInterval('2020-01-01','2021-12-01')
+

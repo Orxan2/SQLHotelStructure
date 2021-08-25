@@ -83,7 +83,6 @@ VALUES(2,3,1,3,'2021-08-08',400,'False'),
       (1,2,3,3,'2021-01-25',600,'True'),
       (3,1,2,1,'2020-10-09',500,'False')
       
-
 CREATE VIEW CallMEttings 
 AS
 SELECT m.Id,pat.Name [Patient Name],pat.Surname [Patient Surname], doc.Name [Doctor],dep.Name [Department],dis.Name [Diseases],m.Date,m.Price,m.IsHealed,r.Name [Room], rt.Name [Room Type] FROM Meetings m
@@ -102,3 +101,27 @@ on rt.Id = r.RoomTypeId
 
 
 SELECT * from CallMEttings
+
+CREATE FUNCTION GetPatientsForDoctors(@doctor nvarchar(50))
+RETURNS nvarchar(50)
+AS
+BEGIN
+DECLARE @name nvarchar(50),@surname nvarchar(50)
+SELECT @name = pat.Name,@surname = pat.Surname FROM Meetings m
+JOIN Doctors doc 
+on doc.Id = m.DoctorId
+JOIN Departments dep 
+on dep.Id = doc.Department
+JOIN Diseases dis 
+on dis.Id = m.DiseasId
+JOIN Patients pat 
+on pat.Id = m.PatientId
+JOIN Rooms r 
+on r.Id = m.RoomId
+JOIN RoomTypes rt
+on rt.Id = r.RoomTypeId
+WHERE doc.Name = @doctor
+RETURN @name +' ' + @surname
+END
+
+SELECT dbo.GetPatientsForDoctors('Eldar') [Patient]
